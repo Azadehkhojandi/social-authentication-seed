@@ -11,35 +11,245 @@
     s.parentNode.insertBefore(po, s);
   })();
   </script>
+  <script>
+  window.fbAsyncInit = function() {
+  FB.init({
+    appId      : '1475895675966586',
+    status     : true, // check login status
+    cookie     : true, // enable cookies to allow the server to access the session
+    xfbml      : true  // parse XFBML
+  });
+
+  
+  };
+
+  // Load the SDK asynchronously
+  (function(d){
+   var js, id = 'facebook-jssdk', ref = d.getElementsByTagName('script')[0];
+   if (d.getElementById(id)) {return;}
+   js = d.createElement('script'); js.id = id; js.async = true;
+   js.src = "//connect.facebook.net/en_US/all.js";
+   ref.parentNode.insertBefore(js, ref);
+  }(document));
+  </script>
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js" ></script>
 </head>
-
+</script>
 <body>
+<div id="fb-root"></div
 <p>social-authentication-seed</P>
-<div id="authOps" style="display:none">
-  <button id="disconnect">Logout</button>
-  <div id="profile"></div>
-</div>
 
+<div id="logout" style="display:none">
+  <button id="disconnect">Logout</button>
+</div>
 <div id="gConnect">
   <button class="g-signin"
       data-scope="profile email https://www.googleapis.com/auth/plus.login"
       data-requestvisibleactions="http://schemas.google.com/AddActivity"
       data-clientId="458058919748-lr1blgl6cgv1r70d3qhralql0ot59917.apps.googleusercontent.com"
-      data-callback="onSignInCallback"
+      data-callback="onGoogleSignInCallback"
       data-theme="dark"
-      data-cookiepolicy="single_host_origin">
-  </button>
+      data-cookiepolicy="single_host_origin"
+      data-approvalprompt="force"
+      >
+  </button>  
+</div>
+<div id="fbConnect">
+  <fb:login-button show-faces="false" size="large" scope="basic_info,email" onlogin="onFBSignInCallback">Sign in</fb:login-button>
 </div>
 
+<div id="profile" style="display:none"></div>
 <div id="friends"  style="display:none">
 </div>  
 
 </body>
 
+
+<script>
+
+
+var socialHelper = (function() {
+
+ function getProfileDetail(socialChannel,response) {
+      
+     
+
+          var person={};
+    if (socialChannel=="Google")
+    {
+
+      
+      if (response.image && response.image.url) {
+        person.image=response.image.url;
+      }
+      if (response.displayName) {
+        person.displayName=response.displayName;
+      }
+            
+      if (response.cover && response.cover.coverPhoto && response.cover.coverPhoto.url) {
+            person.coverImage=response.cover.coverPhoto.url;
+      }
+
+      if (response.emails) {
+            person.emails=response.emails;      
+      }
+    }
+
+    if (socialChannel=="Facebook")
+    {
+
+            
+       if (response.id) {
+        person.image="http://graph.facebook.com/" + response.id + "/picture?type=square";
+        }
+        if (response.name) {
+          person.displayName=response.name;
+        }
+            
+      // if (response.cover && response.cover.coverPhoto && response.cover.coverPhoto.url) {
+      //       person.coverImage=response.cover.coverPhoto.url;
+      // }
+
+      if (response.email) {
+            person.emails= new Array( response.email);      
+      }
+
+    }
+      return person;
+
+
+
+    };
+
+
+  return {
+
+    GetFriends:function(socialChannel,response)
+    {
+        var friends=new Array();
+   var rawFriendsList=null;
+   if (socialChannel=="Google")
+    {
+      if(response!=null && response.items)
+      {
+        rawFriendsList=response.items;
+      }
+    }
+  if (socialChannel=="Facebook")
+    { 
+    if(response!=null && response.data)
+      {
+        rawFriendsList=response.data;
+      }   
+    }  
+
+    if(rawFriendsList!=null)
+    {
+    $.each(rawFriendsList, function( index, item ) {
+          var p=getProfileDetail(socialChannel,item);
+          if(p!={})
+          {
+            friends.push(p);
+          }
+        });
+    }
+   return  friends;
+    },
+    GetProfileDetail: function(socialChannel,response) {
+      
+     return getProfileDetail(socialChannel,response);
+
+    },
+
+
+
+  };
+})();
+</script>
+
+<script>
+
+var facebookHelper = (function() {
+
+
+ return {
+
+  // Here we run a very simple test of the Graph API after login is successful. 
+  // This testAPI() function is only called in those cases. 
+  Profile: function (callback) {
+
+    FB.api('/me', function(response) {
+      var x={success:true,socialChannel:"Facebook",response:response};
+      console.log(response);
+      callback(x);
+    });
+  },
+  Friends :function (callback)
+  {
+    FB.api('/me/friends', { fields: 'name,id' }, function(response) {
+    var x={success:true,socialChannel:"Facebook",response:response};
+      console.log(response);
+      callback(x);
+    });
+  },
+  Share:  function (shareObj, callback) {
+
+            FB.ui(
+                    {
+                        method: 'feed',
+                        name: shareObj.name,
+                        link: shareObj.link,
+                        picture: shareObj.picture,
+                        caption: shareObj.caption,
+                        description: shareObj.description
+                    },
+                    function (response) {
+                        if (response && response.post_id) {
+                            console.log('Post was published.');
+                            callback();
+                        } else {
+                            console.log('Post was not published.');
+                            callback();
+                        }
+                    }
+                );
+        },
+  Disconnect:function ( callback) {
+    FB.logout(function(response) {
+        // user is now logged out
+        var r={success:true, response:response};
+        callback(r);
+    });
+  },
+  Login:function ( callback) {
+  
+            FB.login(function (response) {
+                if (response.authResponse) {
+
+                    // connected
+                    var accessToken = response.authResponse.accessToken;
+                    var userid = response.authResponse.userID;
+                    var r={success:true, response:response};
+                    callback(r);
+
+
+                } else {
+                    var r={success:false, response:response};
+                    callback(r);
+
+                    // cancelled
+                }
+            }, { scope: 'email' });
+        }
+  };
+})();
+
+</script>
+
+
 <script type="text/javascript">
 
-var helper = (function() {
+var googleHelper = (function() {
 
   var BASE_API_PATH = 'plus/v1/';
 
@@ -51,8 +261,9 @@ var helper = (function() {
       var request = gapi.client.plus.people.get( {'userId' : 'me'} );
       request.execute( function(profile) {
         console.log(profile);
-        callback(profile);
-      })
+        var r={success:true,socialChannel:"Google",response:profile};
+        callback(r );
+      });
   },
     Friends: function(callback) {
       var request = gapi.client.plus.people.list({
@@ -61,7 +272,8 @@ var helper = (function() {
       });
       request.execute(function(people) {
         console.log(people);
-        callback(people);
+         var r={success:true,socialChannel:"Google",response:people};
+        callback(r );
       });
     },
     Init:function(authResult,Initcallback)
@@ -83,8 +295,10 @@ var helper = (function() {
     /**
      * Calls the OAuth2 endpoint to disconnect the app for the user.
      */
-    disconnect: function(callback) {
+    Disconnect: function(callback) {
       
+      if(gapi.auth.getToken()!=null)
+      {
       // Revoke the access token.
       $.ajax({
         type: 'GET',
@@ -94,16 +308,23 @@ var helper = (function() {
         contentType: 'application/json',
         dataType: 'jsonp',
         success: function(result) {
-          callback( {success:true,result:result});
+          var r= {success:true,result:result};
+          callback(r);
           console.log('revoke response: ' + result);
          
         },
         error: function(e) {
-          callback( {success:true,result:e});
+          var r={success:false,result:e}
+          callback(r);
           console.log(e);
         }
       });
-    
+      }
+      else
+      {
+        var r={success:false,result:"token is empty"}
+          callback(r);
+      }
     },
 
 
@@ -117,8 +338,16 @@ var helper = (function() {
 $(document).ready(function() {
   $('#disconnect').click( function()
   {
-    
-    helper.disconnect(UIDisconnect);
+   
+   var socialChannel=$(this).data("socialChannel");
+   if(socialChannel=="Google")
+    { 
+      googleHelper.Disconnect(UIDisconnect);
+    }
+    if(socialChannel=="Facebook")
+    { 
+      facebookHelper.Disconnect(UIDisconnect);
+    }
   });
 });
 
@@ -129,76 +358,94 @@ function UIDisconnect(result)
     $('#friends').hide();
     $('#profile').hide();
     $('#gConnect').show();
-	$('#disconnect').hide();
+    $('#fbConnect').show();
+    $('#logout').hide();
   }
 }
 
-function UISetFriends(people)
+function UISetFriends(result)
 {
 
 	$('#friends').empty().show();
-	if(people!=null && people.totalItems>0)
-	{
-	$('#friends').append('Number of people visible to this app: ' + people.totalItems  + '<br/>');
-        for (var personIndex in people.items) {
-          person = people.items[personIndex];
-          $('#friends').append('<p>' + person.displayName + '<img src="' + person.image.url + '">'+'</p>');
+
+    if (result.success)
+    {
+      
+      console.log(result.response) ;     
+      var friends= socialHelper.GetFriends(result.socialChannel,result.response);
+   
+      $('#friends').append('Number of people visible to this app: ' + friends.length  + '<br/>');
+      $.each(friends, function( index, item ) {     
+
+          $('#friends').append('<p>' + item.displayName + '<img src="' + item.image + '">'+'</p>');
           
-        }
+        });
+
 	}
 }
 
-function UISetProfile(profile)
+
+
+
+function UISetProfile(result)
 {
+  $('#profile').empty().show();
+  if (result.success)
+  {
 
-  console.log(UISetProfile);
-  console.log(profile);
-$('#profile').empty().show();
-        if (profile.error) {
-          $('#profile').append(profile.error);
-          return;
-        }
-        $('#authOps').show('slow');
-          $('#gConnect').hide();
+   var person= socialHelper.GetProfileDetail(result.socialChannel,result.response);
+   if(person!={})
+   {
+     $('#logout').show();
+    $('#gConnect').hide();
+    $('#fbConnect').hide();
+    $('#profile').append(
+      "<p>"+
+      '<img src="' + person.image + '">'
+        +
+        person.displayName
+      +
+      "</p>"
+      );
+   }
+
+    // if (result.response.error) {
+    //       $('#profile').append(profile.error);
+    //       return;
+    //     }
         
-        $('#profile').append(
-            $('<p><img src=\"' + profile.image.url + '\"></p>'));
-      
-        $('#profile').append(
-            $('<p>Hello ' + profile.displayName + '!<br />Tagline: ' +
-            profile.tagline + '<br />About: ' + profile.aboutMe + '</p>'));
-        if (profile.cover && profile.coverPhoto) {
-          $('#profile').append(
-              $('<p><img src=\"' + profile.cover.coverPhoto.url + '\"></p>'));
-        }
+       
 
-        if (profile.emails) {
-          $.each( profile.emails, function( index, value ) {
+
+  }
+}
+function onFBSignInCallback(response) {
+  console.log("fbcallbk");
+  console.log(response);
+  facebookHelper.Profile(UISetProfile);
+  facebookHelper.Friends(UISetFriends);
+  $("#disconnect").data("socialChannel","Facebook");
   
-          $('#profile').append(
-                      $('<p>'+( value.value )+'</p>'));
-          
-          });
-          
-        }
-      }
+}
+
 /**
- * Calls the helper method that handles the authentication flow.
+ * Calls the googleHelper method that handles the authentication flow.
  *
  * @param {Object} authResult An Object which contains the access token and
  *   other authentication information.
  */
-function onSignInCallback(authResult) {
+function onGoogleSignInCallback(authResult) {
   console.log(authResult);
-  //helper.onSignInCallback(authResult);
-  helper.Init(authResult,Initcallback);
+  //googleHelper.onSignInCallback(authResult);
+  googleHelper.Init(authResult,googleInitcallback);
   
 }
-function Initcallback(response) {
+function googleInitcallback(response) {
   if(response.success)
   {
-    helper.Profile(UISetProfile);
-    helper.Friends(UISetFriends);
+    googleHelper.Profile(UISetProfile);
+    googleHelper.Friends(UISetFriends);
+    $("#disconnect").data("socialChannel","Google");
   }
 }
 
